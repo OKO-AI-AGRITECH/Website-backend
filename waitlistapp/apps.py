@@ -1,6 +1,5 @@
-from django.contrib import admin
+from django.apps import AppConfig
 
-from .models import WaitlistSignup
-
-# Register your models here.
-admin.site.register(WaitlistSignup)
+class WaitlistappConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'waitlistapp'
