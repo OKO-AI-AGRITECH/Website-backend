@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import WaitlistSignup
+from django.db import IntegrityError # Added this to handle duplicates
 
 @csrf_exempt
 def join_waitlist(request):
@@ -15,7 +16,6 @@ def join_waitlist(request):
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON format'}, status=400)
 
-    # Updated required fields to include email
     required_fields = ['full_name', 'email', 'phone_number', 'location', 'farm_size', 'farming_type']
     
     for field in required_fields:
@@ -27,7 +27,7 @@ def join_waitlist(request):
         # 1. Save to Database
         new_signup = WaitlistSignup.objects.create(
             full_name=str(data['full_name']).strip(),
-            email=str(data['email']).strip().lower(), # Store email in lowercase
+            email=str(data['email']).strip().lower(),
             phone_number=str(data['phone_number']).strip(),
             location=str(data['location']).strip(),
             farm_size=str(data['farm_size']).strip(),
@@ -38,18 +38,28 @@ def join_waitlist(request):
         subject = "Welcome to the Oko Waitlist!"
         message = f"Hi {new_signup.full_name},\n\nThank you for joining our waitlist! We've received your details for {new_signup.location}. We will be in touch soon.\n\nBest regards,\nThe Oko Team"
         
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [new_signup.email],
-            fail_silently=True, # Set to False if you want to see errors during testing
-        )
-        
+        # We use a try/except here so that if the email fails, 
+        # the user still gets a "Success" message for the database part.
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [new_signup.email],
+                fail_silently=True, 
+            )
+        except Exception:
+            pass # Email failed, but we won't crash the whole request
+
         return JsonResponse({
             'success': True,
-            'message': f'Success! A confirmation email has been sent to {new_signup.email}'
+            'message': f'Success! You have been added to the waitlist.'
         }, status=201)
 
+    except IntegrityError:
+        # This catches the "Email already exists" error specifically
+        return JsonResponse({'error': 'This email is already on our waitlist!'}, status=400)
+
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        # This catches anything else
+        return JsonResponse({'error': 'An unexpected error occurred. Please try again.'}, status=500)
