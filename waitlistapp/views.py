@@ -4,7 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import WaitlistSignup
-from django.db import IntegrityError # Added this to handle duplicates
+from django.db import IntegrityError # <--- IMPORTANT: Add this import
 
 @csrf_exempt
 def join_waitlist(request):
@@ -19,12 +19,11 @@ def join_waitlist(request):
     required_fields = ['full_name', 'email', 'phone_number', 'location', 'farm_size', 'farming_type']
     
     for field in required_fields:
-        val = data.get(field)
-        if val is None or val == "" or val == []:
+        if not data.get(field):
             return JsonResponse({'error': f'The field "{field}" is required.'}, status=400)
 
     try:
-        # 1. Save to Database
+        # 1. Attempt to Save to Database
         new_signup = WaitlistSignup.objects.create(
             full_name=str(data['full_name']).strip(),
             email=str(data['email']).strip().lower(),
@@ -34,32 +33,31 @@ def join_waitlist(request):
             farming_type=data['farming_type'], 
         )
 
-        # 2. Send Automated Email
-        subject = "Welcome to the Oko Waitlist!"
-        message = f"Hi {new_signup.full_name},\n\nThank you for joining our waitlist! We've received your details for {new_signup.location}. We will be in touch soon.\n\nBest regards,\nThe Oko Team"
-        
-        # We use a try/except here so that if the email fails, 
-        # the user still gets a "Success" message for the database part.
+        # 2. Attempt to Send Email (Silent failure)
         try:
             send_mail(
-                subject,
-                message,
+                "Welcome to the Oko Waitlist!",
+                f"Hi {new_signup.full_name}, thank you for joining!",
                 settings.DEFAULT_FROM_EMAIL,
                 [new_signup.email],
-                fail_silently=True, 
+                fail_silently=True,
             )
-        except Exception:
-            pass # Email failed, but we won't crash the whole request
+        except:
+            pass 
 
+        # This returns a 201 status (GREEN in Postman)
         return JsonResponse({
             'success': True,
-            'message': f'Success! You have been added to the waitlist.'
+            'message': 'Successfully joined the waitlist!'
         }, status=201)
 
     except IntegrityError:
-        # This catches the "Email already exists" error specifically
-        return JsonResponse({'error': 'This email is already on our waitlist!'}, status=400)
+        # This catches the UNIQUE error and returns 400 (ORANGE in Postman)
+        # Instead of crashing with a 500 error!
+        return JsonResponse({
+            'error': 'This email is already registered on our waitlist.'
+        }, status=400)
 
     except Exception as e:
-        # This catches anything else
-        return JsonResponse({'error': 'An unexpected error occurred. Please try again.'}, status=500)
+        # Catch-all for any other weird errors
+        return JsonResponse({'error': str(e)}, status=500)
