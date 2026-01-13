@@ -82,6 +82,7 @@ pooch==1.8.2
 premailer==3.10.0
 prompt_toolkit==3.0.52
 protobuf==3.19.6
+psycopg2-binary
 pure_eval==0.2.3
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
@@ -131,4 +132,5 @@ whitenoise==6.11.0
 wrapt==2.0.1
 yagmail==0.15.293
 yellowbrick==1.5
+
 
