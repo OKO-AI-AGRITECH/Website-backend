@@ -1,10 +1,11 @@
 import json
+import yagmail
+import os
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.core.mail import send_mail
-from django.conf import settings
 from django.db import IntegrityError
 from .models import WaitlistSignup  
+
 @csrf_exempt
 def join_waitlist(request):
     if request.method != 'POST':
@@ -22,7 +23,7 @@ def join_waitlist(request):
             return JsonResponse({'error': f'The field "{field}" is required.'}, status=400)
 
     try:
-        # 1. Attempt to Save to Database
+        # 1. Save to Database
         new_signup = WaitlistSignup.objects.create(
             full_name=str(data['full_name']).strip(),
             email=str(data['email']).strip().lower(),
@@ -32,19 +33,33 @@ def join_waitlist(request):
             farming_type=data['farming_type'], 
         )
 
-        # 2. Attempt to Send Email (Now with error logging!)
+        # 2. Send Email via yagmail
         try:
-            send_mail(
-                "Welcome to the Oko Waitlist!",
-                f"Hi {new_signup.full_name}, thank you for joining!",
-                settings.DEFAULT_FROM_EMAIL,
-                [new_signup.email],
-                fail_silently=False, # We set this to False so it triggers the "except" block on failure
+            # Initialize yagmail with credentials from Environment Variables
+            yag = yagmail.SMTP(
+                user=os.environ.get('EMAIL_USER'), 
+                password=os.environ.get('EMAIL_PASSWORD')
             )
+
+            # Define the email content
+            subject = "Welcome to the Oko Waitlist!"
+            contents = [
+                f"Hi {new_signup.full_name},",
+                "Thank you for joining the Oko waitlist! We are thrilled to have you.",
+                "We will keep you updated on our progress and notify you as soon as we launch."
+            ]
+
+            # Send the email
+            yag.send(
+                to=new_signup.email,
+                subject=subject,
+                contents=contents
+            )
+            print(f"--- SUCCESS: Email sent to {new_signup.email} via yagmail ---")
+
         except Exception as e:
-            # This prints the error (like "Invalid login" or "Connection timeout") 
-            # to your terminal so you can read it.
-            print(f"--- EMAIL ERROR OCCURRED: {e} ---")
+            # If email fails, we still return success for the signup but log the error
+            print(f"--- YAGMAIL ERROR: {e} ---")
 
         return JsonResponse({
             'success': True,
