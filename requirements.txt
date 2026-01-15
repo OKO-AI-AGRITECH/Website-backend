@@ -94,6 +94,7 @@ python-dateutil==2.9.0.post0
 regex==2025.11.3
 requests==2.32.5
 requests-oauthlib==2.0.0
+resend
 rich==14.2.0
 rsa==4.9.1
 scikit-learn==1.7.2
@@ -132,5 +133,6 @@ whitenoise==6.11.0
 wrapt==2.0.1
 yagmail==0.15.293
 yellowbrick==1.5
+
 
 
